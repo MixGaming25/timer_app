@@ -63,6 +63,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -275,7 +276,11 @@ private fun TimerHome(
     }
 
     selectedDrink?.let { drink ->
-        ModalBottomSheet(onDismissRequest = { selectedDrink = null }) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { selectedDrink = null },
+            sheetState = sheetState
+        ) {
             TimerSheet(
                 drink = drink,
                 secondsPerBar = secondsPerBar,
