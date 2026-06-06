@@ -14,6 +14,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,14 +28,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Coffee
-import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.AssistChip
@@ -83,6 +85,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
+
+private const val STANDARD_SECONDS_PER_BAR = 7f
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -141,7 +145,7 @@ private fun DolceGustoTimerApp() {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("settings", Context.MODE_PRIVATE) }
     var themeMode by rememberSaveable { mutableStateOf(ThemeMode.valueOf(prefs.getString("theme", ThemeMode.System.name) ?: ThemeMode.System.name)) }
-    var secondsPerBar by rememberSaveable { mutableFloatStateOf(prefs.getFloat("secondsPerBar", 7f)) }
+    var secondsPerBar by rememberSaveable { mutableFloatStateOf(prefs.getFloat("secondsPerBar", STANDARD_SECONDS_PER_BAR)) }
 
     DisposableEffect(themeMode, secondsPerBar) {
         prefs.edit()
@@ -202,11 +206,12 @@ private fun TimerHome(
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(DrinkFilter.All) }
+    var showAdvancedSettings by rememberSaveable { mutableStateOf(false) }
     var selectedDrink by remember { mutableStateOf<Drink?>(null) }
 
     val filtered = drinks.filter { drink ->
         val matchesQuery = drink.name.contains(query, ignoreCase = true) ||
-            drink.family.contains(query, ignoreCase = true)
+                drink.family.contains(query, ignoreCase = true)
         val matchesFilter = when (filter) {
             DrinkFilter.All -> true
             DrinkFilter.OneCapsule -> drink.stages.size == 1
@@ -215,40 +220,47 @@ private fun TimerHome(
         matchesQuery && matchesFilter
     }
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            Header(
-                themeMode = themeMode,
-                onThemeModeChange = onThemeModeChange,
-                secondsPerBar = secondsPerBar,
-                onSecondsPerBarChange = onSecondsPerBarChange
-            )
-        }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            item {
-                SearchAndFilters(
-                    query = query,
-                    onQueryChange = { query = it },
-                    filter = filter,
-                    onFilterChange = { filter = it }
+    if (showAdvancedSettings) {
+        AdvancedSettingsScreen(
+            themeMode = themeMode,
+            onThemeModeChange = onThemeModeChange,
+            secondsPerBar = secondsPerBar,
+            onSecondsPerBarChange = onSecondsPerBarChange,
+            onBack = { showAdvancedSettings = false }
+        )
+    } else {
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            topBar = {
+                Header(
+                    onOpenSettings = { showAdvancedSettings = true }
                 )
             }
-            items(filtered, key = { it.name }) { drink ->
-                DrinkCard(
-                    drink = drink,
-                    secondsPerBar = secondsPerBar,
-                    onClick = { selectedDrink = drink }
-                )
+        ) { padding ->
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = PaddingValues(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    SearchAndFilters(
+                        query = query,
+                        onQueryChange = { query = it },
+                        filter = filter,
+                        onFilterChange = { filter = it }
+                    )
+                }
+                items(filtered, key = { it.name }) { drink ->
+                    DrinkCard(
+                        drink = drink,
+                        secondsPerBar = secondsPerBar,
+                        onClick = { selectedDrink = drink }
+                    )
+                }
+                item { Spacer(Modifier.height(20.dp)) }
             }
-            item { Spacer(Modifier.height(20.dp)) }
         }
     }
 
@@ -263,14 +275,113 @@ private fun TimerHome(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Header(
+private fun AdvancedSettingsScreen(
     themeMode: ThemeMode,
     onThemeModeChange: (ThemeMode) -> Unit,
     secondsPerBar: Float,
-    onSecondsPerBarChange: (Float) -> Unit
+    onSecondsPerBarChange: (Float) -> Unit,
+    onBack: () -> Unit
 ) {
-    var themeMenuOpen by rememberSaveable { mutableStateOf(false) }
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(start = 8.dp, top = 14.dp, end = 18.dp, bottom = 12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                    Text("Advanced Settings", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = PaddingValues(18.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                SettingsSection(title = "Appearance") {
+                    SingleChoiceSegmentedButtonRow {
+                        ThemeMode.entries.forEachIndexed { index, mode ->
+                            SegmentedButton(
+                                selected = themeMode == mode,
+                                onClick = { onThemeModeChange(mode) },
+                                shape = SegmentedButtonDefaults.itemShape(index, ThemeMode.entries.size)
+                            ) {
+                                Text(mode.label)
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                SettingsSection(title = "Brew Calibration") {
+                    Text(
+                        "Standard Dolce Gusto timing: ${STANDARD_SECONDS_PER_BAR.roundToInt()} sec per bar",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Adjust only if your machine pours noticeably faster or slower.",
+                        modifier = Modifier.padding(top = 4.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Current: ${secondsPerBar.roundToInt()} sec per bar",
+                        modifier = Modifier.padding(top = 16.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Slider(
+                        value = secondsPerBar,
+                        onValueChange = onSecondsPerBarChange,
+                        valueRange = 5f..12f,
+                        steps = 6
+                    )
+                    TextButton(
+                        onClick = { onSecondsPerBarChange(STANDARD_SECONDS_PER_BAR) },
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = null)
+                        Text("Use standard timing", modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            content()
+        }
+    }
+}
+
+@Composable
+private fun Header(
+    onOpenSettings: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -302,35 +413,10 @@ private fun Header(
                 Text("Dolce Gusto Timer", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
                 Text("Manual machine brew guide", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            IconButton(onClick = { themeMenuOpen = !themeMenuOpen }) {
-                Icon(Icons.Default.DarkMode, contentDescription = "Theme")
+            IconButton(onClick = onOpenSettings) {
+                Icon(Icons.Default.Settings, contentDescription = "Advanced settings")
             }
         }
-        if (themeMenuOpen) {
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.padding(top = 14.dp)) {
-                ThemeMode.entries.forEachIndexed { index, mode ->
-                    SegmentedButton(
-                        selected = themeMode == mode,
-                        onClick = { onThemeModeChange(mode) },
-                        shape = SegmentedButtonDefaults.itemShape(index, ThemeMode.entries.size)
-                    ) {
-                        Text(mode.label)
-                    }
-                }
-            }
-        }
-        Text(
-            "Flow speed: ${secondsPerBar.roundToInt()} sec per bar",
-            modifier = Modifier.padding(top = 14.dp),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Slider(
-            value = secondsPerBar,
-            onValueChange = onSecondsPerBarChange,
-            valueRange = 5f..12f,
-            steps = 6
-        )
     }
 }
 
