@@ -1,9 +1,11 @@
 package com.dolcegustotimer.app
 
 import android.content.Context
+import androidx.core.content.edit
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -18,17 +20,21 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Coffee
 import androidx.compose.material.icons.filled.LocalCafe
@@ -85,12 +91,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.seconds
 
 private const val STANDARD_SECONDS_PER_BAR = 7f
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContent {
             DolceGustoTimerApp()
         }
@@ -148,10 +156,10 @@ private fun DolceGustoTimerApp() {
     var secondsPerBar by rememberSaveable { mutableFloatStateOf(prefs.getFloat("secondsPerBar", STANDARD_SECONDS_PER_BAR)) }
 
     DisposableEffect(themeMode, secondsPerBar) {
-        prefs.edit()
-            .putString("theme", themeMode.name)
-            .putFloat("secondsPerBar", secondsPerBar)
-            .apply()
+        prefs.edit {
+            putString("theme", themeMode.name)
+            putFloat("secondsPerBar", secondsPerBar)
+        }
         onDispose { }
     }
 
@@ -230,7 +238,9 @@ private fun TimerHome(
         )
     } else {
         Scaffold(
+            modifier = Modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background,
+            contentWindowInsets = WindowInsets.systemBars,
             topBar = {
                 Header(
                     onOpenSettings = { showAdvancedSettings = true }
@@ -285,17 +295,20 @@ private fun AdvancedSettingsScreen(
     onBack: () -> Unit
 ) {
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets.systemBars,
         topBar = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surface)
-                    .padding(start = 8.dp, top = 14.dp, end = 18.dp, bottom = 12.dp)
+                    .padding(WindowInsets.statusBars.asPaddingValues())
+                    .padding(start = 8.dp, end = 18.dp, bottom = 12.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                     Text("Advanced Settings", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
                 }
@@ -393,6 +406,7 @@ private fun Header(
                     )
                 )
             )
+            .padding(WindowInsets.statusBars.asPaddingValues())
             .padding(start = 18.dp, top = 18.dp, end = 18.dp, bottom = 10.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -524,7 +538,7 @@ private fun TimerSheet(drink: Drink, secondsPerBar: Float, onClose: () -> Unit) 
 
     LaunchedEffect(running, remaining, stageIndex, drink.name) {
         if (running && remaining > 0) {
-            delay(1000)
+            delay(1.seconds)
             remaining -= 1
         } else if (running && remaining == 0) {
             if (stageIndex < drink.stages.lastIndex) {
